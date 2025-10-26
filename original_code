@@ -1,0 +1,532 @@
+import React, { useState, useEffect } from 'react';
+import { Ghost, Skull, Users, Crown, Timer, Trophy, BookOpen } from 'lucide-react';
+
+const SpookyCalculusKahoot = () => {
+  const [gameState, setGameState] = useState('lobby');
+  const [playerName, setPlayerName] = useState('');
+  const [roomCode, setRoomCode] = useState('');
+  const [players, setPlayers] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState(null);
+  const [isHost, setIsHost] = useState(false);
+  
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const [questionNumber, setQuestionNumber] = useState(0);
+  const [jumpscare, setJumpscare] = useState(false);
+  const [roundResults, setRoundResults] = useState([]);
+
+  const questionBank = [
+    {
+      id: 1,
+      question: "What is the derivative of f(x) = x³?",
+      options: ["3x²", "x²", "3x", "x³"],
+      correct: 0,
+      explanation: "Using the power rule d/dx(xⁿ) = n·xⁿ⁻¹, we bring down the exponent 3 and multiply by x raised to (3-1). So d/dx(x³) = 3x²."
+    },
+    {
+      id: 2,
+      question: "What is the derivative of f(x) = 5x² + 3x - 7?",
+      options: ["10x + 3", "5x + 3", "10x² + 3x", "5x - 7"],
+      correct: 0,
+      explanation: "We differentiate each term separately: d/dx(5x²) = 10x using the power rule, d/dx(3x) = 3 (constants come down), and d/dx(-7) = 0 (derivative of a constant is zero). Result: 10x + 3."
+    },
+    {
+      id: 3,
+      question: "If f(x) = sin(x), what is f'(x)?",
+      options: ["cos(x)", "-cos(x)", "-sin(x)", "tan(x)"],
+      correct: 0,
+      explanation: "This is a fundamental derivative rule: the derivative of sin(x) is cos(x). This can be proven using the limit definition of the derivative and trigonometric identities."
+    },
+    {
+      id: 4,
+      question: "What is the derivative of f(x) = eˣ?",
+      options: ["eˣ", "xeˣ⁻¹", "ln(x)", "e"],
+      correct: 0,
+      explanation: "The exponential function eˣ is unique because it's its own derivative! d/dx(eˣ) = eˣ. This is one of the reasons e is so important in calculus."
+    },
+    {
+      id: 5,
+      question: "Using the chain rule, what is d/dx[sin(3x)]?",
+      options: ["3cos(3x)", "cos(3x)", "3sin(3x)", "-3cos(3x)"],
+      correct: 0,
+      explanation: "Using the chain rule: d/dx[sin(u)] = cos(u)·du/dx. Here u = 3x, so du/dx = 3. Therefore: d/dx[sin(3x)] = cos(3x)·3 = 3cos(3x)."
+    },
+    {
+      id: 6,
+      question: "What is the derivative of f(x) = x⁻²?",
+      options: ["-2x⁻³", "2x⁻³", "-2x⁻¹", "x⁻³"],
+      correct: 0,
+      explanation: "Using the power rule with negative exponents: d/dx(x⁻²) = -2·x⁻²⁻¹ = -2x⁻³, or written another way: -2/x³. The power rule works for all real number exponents!"
+    },
+    {
+      id: 7,
+      question: "If f(x) = ln(x), what is f'(x)?",
+      options: ["1/x", "ln(x)", "x", "e/x"],
+      correct: 0,
+      explanation: "The derivative of the natural logarithm ln(x) is 1/x. This is a fundamental rule. Note that this is only defined for x > 0, just like ln(x) itself."
+    },
+    {
+      id: 8,
+      question: "Using the product rule, what is d/dx[x·sin(x)]?",
+      options: ["sin(x) + x·cos(x)", "x·cos(x)", "sin(x)·cos(x)", "cos(x)"],
+      correct: 0,
+      explanation: "Product rule: d/dx[u·v] = u'v + uv'. Here u = x (so u' = 1) and v = sin(x) (so v' = cos(x)). Result: (1)·sin(x) + x·cos(x) = sin(x) + x·cos(x)."
+    },
+    {
+      id: 9,
+      question: "What is the derivative of f(x) = cos(x)?",
+      options: ["-sin(x)", "sin(x)", "-cos(x)", "tan(x)"],
+      correct: 0,
+      explanation: "The derivative of cos(x) is -sin(x). Notice the negative sign! This follows from the limit definition and is related to how the cosine function changes."
+    },
+    {
+      id: 10,
+      question: "What is d/dx[x² · eˣ] using the product rule?",
+      options: ["2x·eˣ + x²·eˣ", "2x·eˣ", "x²·eˣ", "2xeˣ⁻¹"],
+      correct: 0,
+      explanation: "Product rule: d/dx[u·v] = u'v + uv'. Here u = x² (u' = 2x) and v = eˣ (v' = eˣ). Result: 2x·eˣ + x²·eˣ, which can be factored as eˣ(2x + x²)."
+    }
+  ];
+
+  const generateRoomCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const createRoom = () => {
+    if (!playerName.trim()) return;
+    const code = generateRoomCode();
+    const newPlayer = {
+      id: Date.now(),
+      name: playerName,
+      score: 0,
+      isHost: true,
+      answers: []
+    };
+    setRoomCode(code);
+    setCurrentPlayer(newPlayer);
+    setPlayers([newPlayer]);
+    setIsHost(true);
+    setGameState('lobby');
+  };
+
+  const joinRoom = () => {
+    if (!playerName.trim() || !roomCode.trim()) return;
+    const newPlayer = {
+      id: Date.now(),
+      name: playerName,
+      score: 0,
+      isHost: false,
+      answers: []
+    };
+    setCurrentPlayer(newPlayer);
+    setPlayers(prev => [...prev, newPlayer]);
+    setGameState('lobby');
+  };
+
+  const startGame = () => {
+    if (players.length < 1) return;
+    setQuestionNumber(1);
+    loadQuestion(0);
+  };
+
+  const loadQuestion = (index) => {
+    if (index >= questionBank.length) {
+      setGameState('finalScores');
+      return;
+    }
+    setCurrentQuestion(questionBank[index]);
+    setSelectedAnswer(null);
+    setTimeLeft(20);
+    setGameState('question');
+    setTimeout(() => setGameState('answering'), 3000);
+  };
+
+  useEffect(() => {
+    if (gameState === 'answering' && timeLeft > 0) {
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (timeLeft === 0 && gameState === 'answering') {
+      submitAnswer(null);
+    }
+  }, [timeLeft, gameState]);
+
+  const submitAnswer = (answerIndex) => {
+    if (selectedAnswer !== null) return;
+    setSelectedAnswer(answerIndex);
+    const isCorrect = answerIndex === currentQuestion.correct;
+    const points = isCorrect ? Math.max(500, 1000 - (20 - timeLeft) * 25) : 0;
+    
+    const updatedPlayer = {
+      ...currentPlayer,
+      score: currentPlayer.score + points,
+      answers: [...currentPlayer.answers, { correct: isCorrect, points }]
+    };
+    setCurrentPlayer(updatedPlayer);
+    
+    const allResults = players.map(p => {
+      if (p.id === currentPlayer.id) {
+        return { ...updatedPlayer, lastAnswer: isCorrect, lastPoints: points };
+      }
+      const randomCorrect = Math.random() > 0.35;
+      const randomPoints = randomCorrect ? Math.floor(Math.random() * 500) + 500 : 0;
+      return {
+        ...p,
+        score: p.score + randomPoints,
+        lastAnswer: randomCorrect,
+        lastPoints: randomPoints,
+        answers: [...p.answers, { correct: randomCorrect, points: randomPoints }]
+      };
+    });
+    
+    setPlayers(allResults);
+    setRoundResults(allResults);
+    
+    if (!isCorrect) {
+      setJumpscare(true);
+      setTimeout(() => {
+        setJumpscare(false);
+        setTimeout(() => setGameState('results'), 500);
+      }, 2000);
+    } else {
+      setTimeout(() => setGameState('results'), 1500);
+    }
+  };
+
+  const showExplanation = () => {
+    setGameState('explanation');
+  };
+
+  const nextQuestion = () => {
+    if (questionNumber >= questionBank.length) {
+      setGameState('finalScores');
+    } else {
+      setQuestionNumber(questionNumber + 1);
+      loadQuestion(questionNumber);
+    }
+  };
+
+  const answerColors = [
+    'bg-red-500 hover:bg-red-600',
+    'bg-blue-500 hover:bg-blue-600', 
+    'bg-yellow-500 hover:bg-yellow-600',
+    'bg-green-500 hover:bg-green-600'
+  ];
+
+  const answerShapes = ['△', '◇', '○', '□'];
+
+  // JUMPSCARE
+  if (jumpscare) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-600 animate-pulse">
+        <div className="text-center animate-bounce">
+          <div className="text-9xl mb-6">💀👻🎃</div>
+          <div className="text-8xl font-bold text-white mb-4">WRONG!</div>
+          <div className="text-6xl text-white">BOO! 😱</div>
+        </div>
+      </div>
+    );
+  }
+
+  // START SCREEN
+  if (gameState === 'lobby' && !roomCode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8">
+          <div className="text-center mb-8">
+            <div className="text-6xl mb-4">📐👻🎃</div>
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">Spooky Calculus Kahoot!</h1>
+            <p className="text-gray-600">Derivatives Edition</p>
+          </div>
+          
+          <input
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Enter your name"
+            className="w-full p-4 mb-4 text-xl rounded-xl border-2 border-gray-300 focus:border-purple-500 focus:outline-none"
+          />
+          
+          <button
+            onClick={createRoom}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-xl text-xl mb-3 transition-all transform hover:scale-105"
+          >
+            Create Room
+          </button>
+          
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              placeholder="Room Code"
+              className="flex-1 p-4 text-xl rounded-xl border-2 border-gray-300 focus:border-purple-500 focus:outline-none"
+            />
+            <button
+              onClick={joinRoom}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-xl transition-all"
+            >
+              Join
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // LOBBY
+  if (gameState === 'lobby') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full bg-white rounded-3xl shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">Game Lobby</h1>
+            <div className="text-5xl font-mono bg-gray-800 text-white inline-block px-8 py-3 rounded-lg">
+              {roomCode}
+            </div>
+            <p className="text-gray-600 mt-2">Share this code with friends!</p>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Users size={28} />
+              Players ({players.length}/5)
+            </h3>
+            <div className="space-y-2">
+              {players.map(player => (
+                <div key={player.id} className="bg-gray-100 p-4 rounded-lg flex items-center justify-between">
+                  <span className="text-gray-800 font-semibold text-lg">{player.name}</span>
+                  {player.isHost && <Crown className="text-yellow-500" size={24} />}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {isHost && (
+            <button
+              onClick={startGame}
+              disabled={players.length < 1}
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-xl text-xl transition-all transform hover:scale-105 disabled:scale-100"
+            >
+              Start Game
+            </button>
+          )}
+          
+          {!isHost && (
+            <p className="text-center text-gray-600 text-lg">Waiting for host to start...</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // QUESTION DISPLAY (before answering)
+  if (gameState === 'question') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
+        <div className="max-w-4xl w-full text-center">
+          <div className="bg-white rounded-3xl shadow-2xl p-12 mb-6">
+            <div className="text-6xl font-bold text-gray-800 mb-4">
+              Question {questionNumber}
+            </div>
+            <div className="text-3xl text-gray-700">
+              {currentQuestion.question}
+            </div>
+          </div>
+          <div className="text-2xl text-white font-semibold animate-pulse">
+            Get Ready...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ANSWERING STATE
+  if (gameState === 'answering') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex flex-col items-center justify-center p-4">
+        <div className="max-w-4xl w-full">
+          {/* Timer */}
+          <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <Timer size={32} className="text-gray-800" />
+              <span className="text-5xl font-bold text-gray-800">{timeLeft}s</span>
+            </div>
+            <div className="w-full bg-gray-300 h-4 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${
+                  timeLeft <= 5 ? 'bg-red-500' : 'bg-green-500'
+                }`}
+                style={{ width: `${(timeLeft / 20) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Question */}
+          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
+            <div className="text-3xl font-bold text-gray-800 text-center">
+              {currentQuestion.question}
+            </div>
+          </div>
+
+          {/* Answer Options */}
+          <div className="grid grid-cols-2 gap-4">
+            {currentQuestion.options.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => submitAnswer(index)}
+                disabled={selectedAnswer !== null}
+                className={`${answerColors[index]} ${
+                  selectedAnswer === index ? 'ring-8 ring-white scale-105' : ''
+                } text-white font-bold py-8 px-6 rounded-2xl text-2xl transition-all transform hover:scale-105 disabled:scale-100 shadow-lg disabled:cursor-not-allowed flex items-center gap-4`}
+              >
+                <span className="text-4xl">{answerShapes[index]}</span>
+                <span className="flex-1 text-left">{option}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // RESULTS SCREEN
+  if (gameState === 'results') {
+    const sortedPlayers = [...roundResults].sort((a, b) => b.score - a.score);
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center p-4">
+        <div className="max-w-3xl w-full">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-4">
+            <h2 className="text-4xl font-bold text-center text-gray-800 mb-6">
+              Question {questionNumber} Results
+            </h2>
+            
+            <div className="bg-gray-100 p-6 rounded-xl mb-6">
+              <div className="text-xl text-gray-700 mb-3">
+                <strong>Correct Answer:</strong>
+              </div>
+              <div className="text-3xl font-bold text-green-600">
+                {currentQuestion.options[currentQuestion.correct]}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {sortedPlayers.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className={`p-4 rounded-xl flex items-center justify-between ${
+                    player.lastAnswer ? 'bg-green-100' : 'bg-red-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl font-bold text-gray-600">#{idx + 1}</span>
+                    <div>
+                      <div className="font-bold text-gray-800 text-lg">{player.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {player.lastAnswer ? `+${player.lastPoints} pts` : '+0 pts'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl">{player.lastAnswer ? '✅' : '❌'}</div>
+                    <div className="font-bold text-xl text-gray-800">{player.score}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {isHost && (
+            <button
+              onClick={showExplanation}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl text-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+            >
+              <BookOpen size={24} />
+              See Explanation
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // EXPLANATION SCREEN
+  if (gameState === 'explanation') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center p-4">
+        <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <BookOpen size={64} className="mx-auto text-blue-600 mb-4" />
+            <h2 className="text-4xl font-bold text-gray-800 mb-2">Mini Lesson</h2>
+            <div className="text-xl text-gray-600">Why the answer is correct</div>
+          </div>
+
+          <div className="bg-blue-50 p-6 rounded-xl mb-6">
+            <div className="text-2xl font-bold text-gray-800 mb-3">
+              Question: {currentQuestion.question}
+            </div>
+            <div className="text-3xl font-bold text-green-600 mb-4">
+              Answer: {currentQuestion.options[currentQuestion.correct]}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-6 rounded-xl mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-3">Explanation:</h3>
+            <p className="text-xl text-gray-700 leading-relaxed">
+              {currentQuestion.explanation}
+            </p>
+          </div>
+
+          {isHost && (
+            <button
+              onClick={nextQuestion}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-xl text-xl transition-all transform hover:scale-105"
+            >
+              {questionNumber >= questionBank.length ? 'See Final Scores' : 'Next Question'}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // FINAL SCORES
+  if (gameState === 'finalScores') {
+    const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+    const winner = sortedPlayers[0];
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center p-4">
+        <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl p-8">
+          <div className="text-center mb-8">
+            <Trophy size={96} className="mx-auto text-yellow-500 mb-4" />
+            <h1 className="text-5xl font-bold text-gray-800 mb-2">Game Over!</h1>
+            <div className="text-3xl text-gray-600 mb-2">Winner:</div>
+            <div className="text-4xl font-bold text-purple-600">{winner.name}</div>
+            <div className="text-2xl text-gray-600 mt-2">{winner.score} points</div>
+          </div>
+          
+          <div className="space-y-3">
+            <h3 className="text-3xl font-bold text-gray-800 text-center mb-4">Final Standings</h3>
+            {sortedPlayers.map((player, idx) => (
+              <div key={player.id} className="bg-gray-100 p-5 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-4xl">
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🎃'}
+                  </span>
+                  <span className="text-2xl font-bold text-gray-800">{player.name}</span>
+                </div>
+                <span className="text-3xl font-bold text-purple-600">{player.score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default SpookyCalculusKahoot;
